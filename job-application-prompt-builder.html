@@ -376,7 +376,7 @@
               <option value="fill">Fill blank fields only</option>
               <option value="verify">Verify and correct pre-filled fields</option>
             </select>
-            <div class="hint">The prompt will ask ChatGPT Chrome to inspect the current page, ask you about missing or ambiguous information, and stop before submission.</div>
+            <div class="hint">The prompt will ask ChatGPT Chrome to inspect the current page and stop before submission.</div>
           </div>
           <div class="mode-note" id="modeNote">
             <strong>Blank-form workflow</strong>
@@ -503,8 +503,7 @@
           "1. Inspect the current application page and identify every relevant pre-filled value.",
           "2. Compare each value with the information below.",
           "3. Leave correct values unchanged.",
-          "4. Correct values that clearly conflict with the information below.",
-          "5. If a value is missing, ambiguous, or conflicting, ask me before entering anything."
+          "4. Correct values that clearly conflict with the information below."
         ].join("\n");
       }
 
@@ -512,8 +511,7 @@
         "MODE: FILL BLANK FIELDS ONLY",
         "1. Inspect the current application page and identify every relevant empty field.",
         "2. Fill empty fields using the information below.",
-        "3. Leave any field that already contains a value untouched, even if it looks different.",
-        "4. If a required field cannot be completed from the information below, ask me before entering anything."
+        "3. Leave any field that already contains a value untouched, even if it looks different."
       ].join("\n");
     }
 
@@ -535,7 +533,6 @@
         "",
         "WORKFLOW",
         "- First inspect the page and map visible labels to the supplied information.",
-        "- Ask any necessary clarification questions before making uncertain changes.",
         "- Then complete the requested field work using the controls already present on the page.",
         "- When finished, stop and report: fields filled, fields verified, fields corrected, fields skipped, and unresolved questions.",
         "",
@@ -587,7 +584,7 @@
 
     function updateModeNote() {
       if (elements.mode.value === "verify") {
-        modeNote.innerHTML = "<strong>Verification workflow</strong>Correct values stay as they are. Clear inaccuracies are fixed, while uncertain differences are brought back to you.";
+        modeNote.innerHTML = "<strong>Verification workflow</strong>Correct values stay as they are. Clear inaccuracies are fixed, while uncertain differences are left unchanged.";
         return;
       }
       modeNote.innerHTML = "<strong>Blank-form workflow</strong>Existing values are left untouched. Supplied information is used to complete empty fields.";
