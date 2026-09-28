@@ -138,7 +138,8 @@
 
     .full { grid-column: 1 / -1; }
 
-    label {
+    label,
+    .mode-label {
       display: block;
       margin-bottom: 6px;
       color: var(--muted);
@@ -371,26 +372,28 @@
         <legend>Prompt behavior</legend>
         <div class="mode-panel">
           <div>
-            <label for="mode">What should ChatGPT Chrome do?</label>
-            <select id="mode">
-              <option value="fill">Fill blank fields only</option>
-              <option value="verify">Verify and correct pre-filled fields</option>
-            </select>
-            <div class="hint">The prompt will ask ChatGPT Chrome to inspect the current page and stop before submission.</div>
+            <div class="mode-label">What should ChatGPT Chrome do?</div>
+            <div class="hint">Fill empty fields, verify pre-filled values, and stop before submission for your review.</div>
           </div>
           <div class="mode-note" id="modeNote">
-            <strong>Blank-form workflow</strong>
-            Existing values are left untouched. Supplied information is used to complete empty fields.
+            <strong>Combined workflow</strong>
+            Empty fields are completed, then pre-filled values are checked against your information. Clear inaccuracies are corrected; uncertain differences are left unchanged.
           </div>
         </div>
       </fieldset>
       <fieldset>
         <legend>Resume source information</legend>
-        <p class="section-intro">Paste the whole paragraph from your <code>resume.md</code> file for this application. It is used in the prompt but is not saved to the reusable profile.</p>
+        <p class="section-intro">Add the work experience and education details from your <code>resume.md</code> file for this application. They are used in the prompt but are not saved to the reusable profile.</p>
         <div class="grid">
           <div class="full">
-            <label for="resumeParagraph">Resume paragraph / source information</label>
-            <textarea id="resumeParagraph" class="resume-area" placeholder="Paste the complete paragraph from resume.md here"></textarea>
+            <label for="workExperiences">Work Experiences</label>
+            <textarea id="workExperiences" class="resume-area" placeholder="Paste your work experience details from resume.md here"></textarea>
+          </div>
+          <div class="full">
+            <div id="educationFields"></div>
+            <div class="actions">
+              <button id="addEducationButton" class="secondary" type="button">Add education</button>
+            </div>
           </div>
         </div>
       </fieldset>
@@ -452,8 +455,12 @@
 
   <script>
     const profileIds = ["portfolio", "linkedin", "certifications"];
-    const resumeIds = ["resumeParagraph"];
+    const resumeIds = ["workExperiences"];
     const applicationIds = ["relevantSkills"];
+    const defaultEducation = [
+      "Bachelor of Social Sciences (Honours) Economics - Merit - Nanyang Technological University, Singapore (Aug 2019 - Jun 2023)",
+      "Diploma with Merit in Tourism and Resort Management - Singapore Polytechnic, Singapore (Apr 2012 - Apr 2015)"
+    ];
 
     const profileLabels = {
       portfolio: "Portfolio or personal website",
@@ -467,7 +474,7 @@
 
     const storageKey = "jobApplicationPromptBuilder.profile.v2";
     const elements = Object.fromEntries(
-      [...profileIds, ...resumeIds, ...applicationIds, "mode"].map(function (id) {
+      [...profileIds, ...resumeIds, ...applicationIds].map(function (id) {
         return [id, document.getElementById(id)];
       })
     );
@@ -477,7 +484,9 @@
     const summary = document.getElementById("summary");
     const status = document.getElementById("status");
     const warning = document.getElementById("warning");
-    const modeNote = document.getElementById("modeNote");
+    const educationFields = document.getElementById("educationFields");
+    const addEducationButton = document.getElementById("addEducationButton");
+    let nextEducationId = 1;
 
     function readValue(id) {
       return elements[id].value.trim();
@@ -496,28 +505,68 @@
       return lines.length ? ["### " + title, lines.join("\n")].join("\n") : "";
     }
 
-    function modeInstructions() {
-      if (elements.mode.value === "verify") {
-        return [
-          "MODE: VERIFY AND CORRECT PRE-FILLED FIELDS",
-          "1. Inspect the current application page and identify every relevant pre-filled value.",
-          "2. Compare each value with the information below.",
-          "3. Leave correct values unchanged.",
-          "4. Correct values that clearly conflict with the information below."
-        ].join("\n");
-      }
+    function readEducationValues() {
+      return [...educationFields.querySelectorAll("textarea")]
+        .map(function (textarea) { return textarea.value.trim(); })
+        .filter(Boolean);
+    }
 
+    function addEducationField(value) {
+      const entry = document.createElement("div");
+      entry.className = "education-entry";
+
+      const textareaId = "education-" + nextEducationId++;
+      const label = document.createElement("label");
+      label.htmlFor = textareaId;
+      label.textContent = "Education";
+
+      const textarea = document.createElement("textarea");
+      textarea.id = textareaId;
+      textarea.className = "resume-area";
+      textarea.placeholder = "Paste an education entry from resume.md here";
+      textarea.value = value || "";
+      textarea.addEventListener("input", render);
+      textarea.addEventListener("change", render);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "danger";
+      removeButton.textContent = "Remove";
+      removeButton.addEventListener("click", function () {
+        entry.remove();
+        render();
+        status.textContent = "Education entry removed.";
+      });
+      actions.appendChild(removeButton);
+
+      entry.append(label, textarea, actions);
+      educationFields.appendChild(entry);
+    }
+
+    function resetEducation() {
+      educationFields.replaceChildren();
+      nextEducationId = 1;
+      defaultEducation.forEach(addEducationField);
+    }
+
+    function combinedInstructions() {
       return [
-        "MODE: FILL BLANK FIELDS ONLY",
-        "1. Inspect the current application page and identify every relevant empty field.",
-        "2. Fill empty fields using the information below.",
-        "3. Leave any field that already contains a value untouched, even if it looks different."
+        "MODE: FILL BLANKS, THEN VERIFY AND CORRECT PRE-FILLED FIELDS",
+        "1. Inspect the current application page and identify every relevant field, including empty and pre-filled fields.",
+        "2. Fill empty fields using the information below when the supplied information supports an answer.",
+        "3. Compare each pre-filled value with the information below.",
+        "4. Leave correct pre-filled values unchanged.",
+        "5. Correct pre-filled values that clearly conflict with the information below.",
+        "6. Leave uncertain or ambiguous differences unchanged and flag them for my review."
       ].join("\n");
     }
 
     function buildPrompt() {
       const profileLines = readGroup(profileIds, profileLabels);
-      const resumeLines = readGroup(resumeIds, { resumeParagraph: "Resume paragraph / source information" });
+      const workExperiences = readValue("workExperiences");
+      const education = readEducationValues();
       const applicationLines = readGroup(applicationIds, applicationLabels);
 
       return [
@@ -529,12 +578,14 @@
         "- Do not submit the application, click a final-submit button, send messages, accept declarations, or agree to terms on my behalf.",
         "- Do not navigate away from the current application page or upload anything unless I explicitly instruct you later.",
         "",
-        modeInstructions(),
+        combinedInstructions(),
         "",
         "SUPPLIED INFORMATION",
         sectionText("Reusable profile", profileLines),
         "",
-        sectionText("Resume source information", resumeLines),
+        sectionText("Work Experiences", workExperiences ? [workExperiences] : []),
+        "",
+        sectionText("Education", education),
         "",
         sectionText("Application-specific focus", applicationLines),
         "",
@@ -577,32 +628,24 @@
       }
     }
 
-    function updateModeNote() {
-      if (elements.mode.value === "verify") {
-        modeNote.innerHTML = "<strong>Verification workflow</strong>Correct values stay as they are. Clear inaccuracies are fixed, while uncertain differences are left unchanged.";
-        return;
-      }
-      modeNote.innerHTML = "<strong>Blank-form workflow</strong>Existing values are left untouched. Supplied information is used to complete empty fields.";
-    }
-
     function render() {
       const prompt = buildPrompt();
       const filledProfile = profileIds.filter(function (id) { return readValue(id); }).length;
-      const filledResume = resumeIds.filter(function (id) { return readValue(id); }).length;
+      const filledEducation = readEducationValues().length;
+      const educationFieldCount = educationFields.querySelectorAll("textarea").length;
+      const filledResume = resumeIds.filter(function (id) { return readValue(id); }).length + filledEducation;
       const filledApplication = applicationIds.filter(function (id) { return readValue(id); }).length;
-      const modeLabel = elements.mode.value === "verify" ? "Verify + correct" : "Fill blanks";
 
       promptOutput.textContent = prompt;
       promptLength.textContent = prompt.length.toLocaleString() + " characters";
       summary.innerHTML = [
-        ["Mode", modeLabel],
+        ["Mode", "Fill + verify"],
         ["Profile", filledProfile + " / " + profileIds.length + " fields"],
-        ["Application", (filledResume + filledApplication) + " / " + (resumeIds.length + applicationIds.length) + " fields"],
+        ["Application", (filledResume + filledApplication) + " / " + (resumeIds.length + educationFieldCount + applicationIds.length) + " fields"],
         ["Submission", "Never included"]
       ].map(function (item) {
         return "<div class=\"pill\"><span>" + item[0] + "</span>" + item[1] + "</div>";
       }).join("");
-      updateModeNote();
       warning.textContent = filledProfile === 0 && filledResume === 0 && filledApplication === 0
         ? "Add your information to make the prompt specific to this application."
         : "Review the generated prompt before pasting it into ChatGPT Chrome.";
@@ -613,6 +656,7 @@
       [...resumeIds, ...applicationIds].forEach(function (id) {
         elements[id].value = "";
       });
+      resetEducation();
       render();
       status.textContent = "Application-specific inputs reset. Your saved profile is unchanged.";
     }
@@ -672,7 +716,11 @@
       elements[id].addEventListener("change", render);
     });
 
-    elements.mode.addEventListener("change", render);
+    addEducationButton.addEventListener("click", function () {
+      addEducationField("");
+      render();
+      status.textContent = "Blank education entry added.";
+    });
     document.getElementById("saveProfileButton").addEventListener("click", function () {
       const saved = saveProfile();
       render();
@@ -681,6 +729,7 @@
     document.getElementById("resetApplicationButton").addEventListener("click", resetApplication);
     document.getElementById("clearProfileButton").addEventListener("click", clearProfile);
 
+    resetEducation();
     loadProfile();
     render();
   </script>
