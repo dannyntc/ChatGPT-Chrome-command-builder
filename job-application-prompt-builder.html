@@ -552,30 +552,43 @@
       const education = readEducationValues();
       const applicationLines = readGroup(applicationIds, applicationLabels);
       const suppliedSections = [
-        sectionText("Reusable profile", profileLines),
-        sectionText("Work Experiences", workExperiences ? [workExperiences] : []),
+        sectionText("Profile links", profileLines),
+        sectionText("Work experience", workExperiences ? [workExperiences] : []),
         sectionText("Education", education),
-        sectionText("Application-specific focus", applicationLines)
+        sectionText("Languages", [
+          "English: Highest available proficiency, fluency, or mastery level.",
+          "Mandarin: Highest available proficiency, fluency, or mastery level."
+        ]),
+        sectionText("Application focus", applicationLines)
       ].filter(Boolean);
 
       return [
-        "You are helping me complete a job application in the current browser tab.",
-        "Use the visible page for job-specific context, including the employer, role, questions, field labels, and answer choices.",
+        "## Task",
         "",
-        "Use the information below as the source of truth.",
+        "Help me complete and verify the job application in the current browser tab.",
         "",
-        "### Instructions",
+        "## Sources",
+        "",
+        "Use the visible application page for the employer, role, questions, field labels, and available answer choices.",
+        "Use the supplied information below as the source of truth for my details.",
+        "",
+        "## Supplied information",
+        "",
+        suppliedSections.join("\n\n"),
+        "",
+        "## Field instructions",
         "",
         "- Review all relevant empty and pre-filled fields.",
         "- Fill empty fields only when the supplied information supports an answer.",
-        "- Verify pre-filled fields against the supplied information.",
-        "- Leave correct values unchanged.",
-        "- Correct values that clearly conflict with the supplied information.",
+        "- Verify pre-filled fields against the supplied information. Leave correct values unchanged and correct values that clearly conflict.",
         "- Leave uncertain or ambiguous values unchanged and flag them for my review.",
-        "- Do not navigate away, upload anything, send messages, accept declarations or terms, or submit the application unless I explicitly instruct you to do so.",
+        "- For each supplied language, choose the application's option corresponding to the level specified above.",
         "",
-        "### Supplied Information",
-        suppliedSections.join("\n\n"),
+        "## Action limits",
+        "",
+        "Do not navigate away, upload anything, send messages, accept declarations or terms, or submit the application unless I explicitly instruct you to do so.",
+        "",
+        "## Stop condition",
         "",
         "After completing the field work, stop and wait for my review. Do not submit."
       ].join("\n");
