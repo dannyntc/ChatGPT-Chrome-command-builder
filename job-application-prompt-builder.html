@@ -410,10 +410,6 @@
             <label for="linkedin">LinkedIn profile</label>
             <input id="linkedin" type="url" value="https://www.linkedin.com/in/dannyntc/" placeholder="https://www.linkedin.com/in/...">
           </div>
-          <div>
-            <label for="certifications">Certifications / licenses</label>
-            <textarea id="certifications" placeholder="One item per line"></textarea>
-          </div>
         </div>
         <div class="privacy-note">These two reusable fields are stored only in this browser's local storage. They are not sent anywhere by this page.</div>
       </fieldset>
@@ -454,7 +450,7 @@
   </main>
 
   <script>
-    const profileIds = ["portfolio", "linkedin", "certifications"];
+    const profileIds = ["portfolio", "linkedin"];
     const resumeIds = ["workExperiences"];
     const applicationIds = ["relevantSkills"];
     const defaultEducation = [
@@ -464,8 +460,7 @@
 
     const profileLabels = {
       portfolio: "Portfolio or personal website",
-      linkedin: "LinkedIn profile",
-      certifications: "Certifications / licenses"
+      linkedin: "LinkedIn profile"
     };
 
     const applicationLabels = {
@@ -551,45 +546,38 @@
       defaultEducation.forEach(addEducationField);
     }
 
-    function combinedInstructions() {
-      return [
-        "MODE: FILL BLANKS, THEN VERIFY AND CORRECT PRE-FILLED FIELDS",
-        "1. Inspect the current application page and identify every relevant field, including empty and pre-filled fields.",
-        "2. Fill empty fields using the information below when the supplied information supports an answer.",
-        "3. Compare each pre-filled value with the information below.",
-        "4. Leave correct pre-filled values unchanged.",
-        "5. Correct pre-filled values that clearly conflict with the information below.",
-        "6. Leave uncertain or ambiguous differences unchanged and flag them for my review."
-      ].join("\n");
-    }
-
     function buildPrompt() {
       const profileLines = readGroup(profileIds, profileLabels);
       const workExperiences = readValue("workExperiences");
       const education = readEducationValues();
       const applicationLines = readGroup(applicationIds, applicationLabels);
+      const suppliedSections = [
+        sectionText("Reusable profile", profileLines),
+        sectionText("Work Experiences", workExperiences ? [workExperiences] : []),
+        sectionText("Education", education),
+        sectionText("Application-specific focus", applicationLines)
+      ].filter(Boolean);
 
       return [
         "You are helping me complete a job application in the current browser tab.",
-        "Use the visible page as the source of job-specific context, including the employer, role, questions, field labels, and answer choices.",
+        "Use the visible page for job-specific context, including the employer, role, questions, field labels, and answer choices.",
         "",
-        "IMPORTANT OPERATING RULES",
-        "- Use the information I provide below as the source of truth.",
-        "- Do not submit the application, click a final-submit button, send messages, accept declarations, or agree to terms on my behalf.",
-        "- Do not navigate away from the current application page or upload anything unless I explicitly instruct you later.",
+        "Use the information below as the source of truth.",
         "",
-        combinedInstructions(),
+        "### Instructions",
         "",
-        "SUPPLIED INFORMATION",
-        sectionText("Reusable profile", profileLines),
+        "- Review all relevant empty and pre-filled fields.",
+        "- Fill empty fields only when the supplied information supports an answer.",
+        "- Verify pre-filled fields against the supplied information.",
+        "- Leave correct values unchanged.",
+        "- Correct values that clearly conflict with the supplied information.",
+        "- Leave uncertain or ambiguous values unchanged and flag them for my review.",
+        "- Do not navigate away, upload anything, send messages, accept declarations or terms, or submit the application unless I explicitly instruct you to do so.",
         "",
-        sectionText("Work Experiences", workExperiences ? [workExperiences] : []),
+        "### Supplied Information",
+        suppliedSections.join("\n\n"),
         "",
-        sectionText("Education", education),
-        "",
-        sectionText("Application-specific focus", applicationLines),
-        "",
-        "Do not submit. Wait for my review after the field work is complete."
+        "After completing the field work, stop and wait for my review. Do not submit."
       ].join("\n");
     }
 
@@ -612,7 +600,7 @@
         if (!Object.keys(stored).length) {
           const legacy = JSON.parse(localStorage.getItem("jobApplicationPromptBuilder.profile.v1") || "{}");
           stored = {};
-          ["portfolio", "linkedin", "certifications"].forEach(function (id) {
+          ["portfolio", "linkedin"].forEach(function (id) {
             if (typeof legacy[id] === "string") stored[id] = legacy[id];
           });
           if (Object.values(stored).some(Boolean)) {
